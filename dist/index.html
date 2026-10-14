@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>RIVALS ARENA — 3D Hero Shooter for PC (Original Prototype)</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%;overflow:hidden;background:#070b16;color:#eaf2ff;font-family:"Segoe UI",system-ui,Roboto,Arial,sans-serif}
+  #gl{position:fixed;inset:0;width:100%;height:100%;display:block}
+  #hud-top{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:10px 16px;pointer-events:none;z-index:5}
+  .pill{background:rgba(8,14,30,.72);border:1px solid rgba(120,180,255,.25);border-radius:999px;padding:6px 14px;font-size:13px;letter-spacing:.04em;backdrop-filter:blur(6px)}
+  #score{font-weight:800;font-size:18px}
+  #cross{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;pointer-events:none;text-align:center}
+  #cross .dot{width:6px;height:6px;border-radius:50%;background:#fff;box-shadow:0 0 8px #4df;margin:0 auto}
+  #cross .ring{width:26px;height:26px;border:2px solid rgba(255,255,255,.85);border-radius:50%;margin:-16px auto 0}
+  #hud-bottom{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:end;padding:14px 16px;z-index:5;pointer-events:none}
+  #hpbar{width:260px;height:14px;background:#1a2440;border-radius:8px;overflow:hidden;border:1px solid #3a5}
+  #hpfill{height:100%;width:100%;background:linear-gradient(90deg,#28e07c,#b6ff5c);transition:width .15s}
+  #abilities{display:flex;gap:8px;margin-top:8px}
+  .ab{width:54px;height:54px;border-radius:12px;background:rgba(10,18,38,.8);border:1px solid rgba(120,180,255,.35);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px}
+  .ab small{display:block;font-size:9px;font-weight:400;opacity:.7}
+  #menu{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:radial-gradient(1000px 600px at 50% 20%,rgba(60,120,255,.25),transparent),rgba(4,7,16,.72);backdrop-filter:blur(4px)}
+  #card{width:min(860px,94vw);max-height:92vh;overflow:auto;background:linear-gradient(180deg,#0e1730,#080d1d);border:1px solid rgba(120,180,255,.3);border-radius:18px;padding:22px;box-shadow:0 20px 80px rgba(0,0,0,.6)}
+  #card h1{font-size:clamp(24px,4vw,42px);letter-spacing:.02em}
+  #card h1 span{background:linear-gradient(90deg,#ffd34d,#ff5c5c,#6c8cff);-webkit-background-clip:text;background-clip:text;color:transparent}
+  #card p{opacity:.85;font-size:14px;line-height:1.5;margin:8px 0}
+  #heroes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}
+  .hero{border:2px solid rgba(120,180,255,.2);border-radius:14px;padding:12px;cursor:pointer;background:#0b1330}
+  .hero.sel{border-color:#ffd34d;box-shadow:0 0 0 2px #ffd34d55}
+  .hero h3{font-size:16px}
+  .hero .role{font-size:11px;opacity:.7;letter-spacing:.08em}
+  .hero .stat{font-size:12px;margin-top:6px;opacity:.9}
+  #play{pointer-events:auto;width:100%;padding:14px;font-size:18px;font-weight:800;border:0;border-radius:12px;cursor:pointer;background:linear-gradient(90deg,#ffd34d,#ff7a3d);color:#1a1200}
+  #play:hover{filter:brightness(1.05)}
+  kbd{background:#1a2440;border:1px solid #3a4a7a;border-bottom-width:3px;border-radius:6px;padding:1px 6px;font-size:12px}
+  #feed{position:fixed;right:12px;top:56px;z-index:5;font-size:12px;text-align:right;pointer-events:none}
+  #feed div{background:rgba(0,0,0,.55);margin:4px 0;padding:4px 8px;border-radius:8px}
+  #respawn{position:fixed;left:50%;top:58%;transform:translateX(-50%);z-index:6;display:none;background:rgba(120,0,0,.8);padding:10px 18px;border-radius:12px;font-weight:700}
+  #touch{display:none;position:fixed;inset:auto 0 90px 0;z-index:6;justify-content:space-between;padding:0 18px;pointer-events:none}
+  #touch button{pointer-events:auto;width:64px;height:64px;border-radius:50%;border:1px solid #fff5;font-size:20px;background:rgba(20,30,60,.6);color:#fff}
+  #disclaimer{font-size:11px;opacity:.6;margin-top:8px}
+  #fps{opacity:.7}
+  @media(max-width:700px){#heroes{grid-template-columns:1fr} #hpbar{width:170px} #touch{display:flex}}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="hud-top">
+  <div class="pill">RIVALS ARENA · PC 3D prototype · <span id="fps">60</span> FPS</div>
+  <div class="pill" id="score">0 : 0</div>
+  <div class="pill" id="timer">05:00</div>
+</div>
+<div id="cross"><div class="dot"></div><div class="ring"></div><div id="hit" style="color:#ff5c5c;font-weight:800"></div></div>
+<div id="feed"></div>
+<div id="respawn">RESPAWNING…</div>
+<div id="hud-bottom">
+  <div>
+    <div class="pill" style="margin-bottom:8px"><span id="heroname">STRIKER</span> · HP <span id="hpnum">200</span> · K <span id="kills">0</span> D <span id="deaths">0</span></div>
+    <div id="hpbar"><div id="hpfill"></div></div>
+    <div id="abilities"><div class="ab">◉<small>LMB fire</small></div><div class="ab">E<small id="ecd">ready</small></div><div class="ab">Q<small id="qcd">ult 0%</small></div><div class="ab">⇧<small>sprint</small></div></div>
+  </div>
+  <div class="pill">WASD move · Mouse look · Click shoot · <kbd>E</kbd> dash · <kbd>Q</kbd> ult · <kbd>Space</kbd> jump</div>
+</div>
+<div id="touch"><div><button id="tjump">▲</button> <button id="tfire">◉</button></div><div><button id="tdash">E</button> <button id="tult">Q</button></div></div>
+<div id="menu">
+  <div id="card">
+    <h1>RIVALS <span>ARENA</span> — 3D Hero Shooter</h1>
+    <p>Original fan-inspired prototype for <b>PC Desktop</b>. No Marvel characters or assets — all heroes, maps and code are original. 3v3 arena with bots, pointer-lock mouse look, abilities and ultimates. Built as a single static file, no install needed.</p>
+    <div id="heroes">
+      <div class="hero sel" data-h="striker"><h3>⚡ Striker</h3><div class="role">DUELIST · 200 HP</div><div class="stat">Rapid blaster · E: dash · Q: overdrive (3× fire 6s)</div></div>
+      <div class="hero" data-h="vanguard"><h3>🛡 Vanguard</h3><div class="role">TANK · 350 HP</div><div class="stat">Scatter cannon · E: shield 3s · Q: shockwave</div></div>
+      <div class="hero" data-h="surge"><h3>🌩 Surge</h3><div class="role">SUPPORT · 175 HP</div><div class="stat">Arc bolts heal allies · E: burst heal · Q: team shield</div></div>
+    </div>
+    <button id="play">▶ &nbsp; DEPLOY — Click to Play (PC)</button>
+    <p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · mouse look · click shoot · <kbd>E</kbd> ability · <kbd>Q</kbd> ultimate · <kbd>Shift</kbd> sprint · <kbd>Esc</kbd> menu</p>
+    <p id="disclaimer">Disclaimer: unofficial original prototype. Not affiliated with Marvel, Disney or NetEase. All art/code procedural. Desktop recommended; touch supported for mobile preview.</p>
+  </div>
+</div>
+<script>
+"use strict";
+/* Self-contained WebGL arena — no external deps so screenshots work offline. */
+const canvas=document.getElementById('gl');
+const gl=canvas.getContext('webgl',{antialias:true})||canvas.getContext('experimental-webgl');
+const HUD={hp:document.getElementById('hpfill'),hpnum:document.getElementById('hpnum'),score:document.getElementById('score'),timer:document.getElementById('timer'),feed:document.getElementById('feed'),kills:document.getElementById('kills'),deaths:document.getElementById('deaths'),heroname:document.getElementById('heroname'),hit:document.getElementById('hit'),fps:document.getElementById('fps'),ecd:document.getElementById('ecd'),qcd:document.getElementById('qcd'),respawn:document.getElementById('respawn')};
+let HERO='striker';
+document.querySelectorAll('.hero').forEach(el=>el.onclick=()=>{document.querySelectorAll('.hero').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');HERO=el.dataset.h;HUD.heroname.textContent=HERO.toUpperCase();});
+const STATS={striker:{hp:200,dmg:12,rate:0.13,speed:7},vanguard:{hp:350,dmg:9,rate:0.28,speed:5.2},surge:{hp:175,dmg:14,rate:0.2,speed:6.2}};
+function resize(){canvas.width=innerWidth;canvas.height=innerHeight;if(gl)gl.viewport(0,0,canvas.width,canvas.height);}
+addEventListener('resize',resize);resize();
+/* ---- minimal 3D engine: cubes + floor grid, lambert-ish shading ---- */
+const VS=`attribute vec3 p;attribute vec3 n;uniform mat4 mvp;uniform mat4 mm;varying vec3 vN;varying vec3 vW;void main(){vec4 w=mm*vec4(p,1.0);vW=w.xyz;vN=mat3(mm)*n;gl_Position=mvp*vec4(p,1.0);}`;
+const FS=`precision mediump float;varying vec3 vN;varying vec3 vW;uniform vec3 col;uniform vec3 light;void main(){vec3 N=normalize(vN);vec3 L=normalize(light-vW);float d=max(dot(N,L),0.0);float fog=1.0/(1.0+0.0015*dot(vW,vW));vec3 c=col*(0.35+0.75*d)*fog+vec3(0.04,0.06,0.12)*(1.0-fog);gl_FragColor=vec4(c,1.0);}`;
+function sh(t,s){const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);return o;}
+let prog=null;
+if(gl){prog=gl.createProgram();gl.attachShader(prog,sh(gl.VERTEX_SHADER,VS));gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,FS));gl.linkProgram(prog);gl.useProgram(prog);gl.enable(gl.DEPTH_TEST);}
+const cubeP=new Float32Array([-.5,-.5,-.5,.5,-.5,-.5,.5,.5,-.5,-.5,.5,-.5,-.5,-.5,.5,.5,-.5,.5,.5,.5,.5,-.5,.5,.5,-.5,-.5,-.5,-.5,.5,-.5,-.5,.5,.5,-.5,-.5,.5,.5,-.5,-.5,.5,.5,-.5,.5,.5,.5,.5,-.5,-.5,-.5,.5,-.5,-.5,.5,-.5,.5,.5,-.5,.5,.5,-.5,-.5,.5,-.5,.5,.5,-.5,.5,-.5,-.5,.5,-.5,-.5,-.5,-.5,-.5,.5,.5,-.5,.5,-.5,.5,.5,-.5,.5,.5,.5,.5,.5,.5,-.5,.5,.5,.5,-.5,.5,.5,.5,-.5]);
+const cubeN=new Float32Array([0,0,-1,0,0,-1,0,0,-1,0,0,-1,0,0,1,0,0,1,0,0,1,0,0,1,-1,0,0,-1,0,0,-1,0,0,-1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0,-1,0,0,-1,0,0,-1,0,0,-1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0,-1,0,0,-1,0,0,-1,0,0,-1,0,0,1,0,0,1,0,0,1,0,0,1,0,0]);
+const cubeI=new Uint16Array([0,1,2,0,2,3,4,5,6,4,6,7,8,9,10,8,10,11,12,13,14,12,14,15,16,17,18,16,18,19,20,21,22,20,22,23]);
+let pBuf,nBuf,iBuf;
+if(gl){pBuf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,pBuf);gl.bufferData(gl.ARRAY_BUFFER,cubeP,gl.STATIC_DRAW);nBuf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,nBuf);gl.bufferData(gl.ARRAY_BUFFER,cubeN,gl.STATIC_DRAW);iBuf=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,iBuf);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,cubeI,gl.STATIC_DRAW);}
+function mat4mul(a,b){const o=new Float32Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++){o[c*4+r]=a[r]*b[c*4]+a[4+r]*b[c*4+1]+a[8+r]*b[c*4+2]+a[12+r]*b[c*4+3];}return o;}
+function persp(fov,asp,n,f){const t=1/Math.tan(fov/2);return new Float32Array([t/asp,0,0,0,0,t,0,0,0,0,(f+n)/(n-f),-1,0,0,2*f*n/(n-f),0]);}
+function lookAt(e,c,up){let zx=e[0]-c[0],zy=e[1]-c[1],zz=e[2]-c[2];let l=Math.hypot(zx,zy,zz);zx/=l;zy/=l;zz/=l;let xx=up[1]*zz-up[2]*zy,xy=up[2]*zx-up[0]*zz,xz=up[0]*zy-up[1]*zx;l=Math.hypot(xx,xy,xz)||1;xx/=l;xy/=l;xz/=l;let yx=zy*xz-zz*xy,yy=zz*xx-zx*xz,yz=zx*xy-zy*xx;return new Float32Array([xx,yx,zx,0,xy,yy,zy,0,xz,yz,zz,0,-(xx*e[0]+xy*e[1]+xz*e[2]),-(yx*e[0]+yy*e[1]+yz*e[2]),-(zx*e[0]+zy*e[1]+zz*e[2]),1]);}
+function model(x,y,z,sx,sy,sz,ry){const c=Math.cos(ry||0),s=Math.sin(ry||0);return new Float32Array([sx*c,0,-sx*s,0,0,sy,0,0,sz*s,0,sz*c,0,x,y,z,1]);}
+function drawBox(mvp,mm,color,light){const pa=gl.getAttribLocation(prog,'p'),na=gl.getAttribLocation(prog,'n');gl.bindBuffer(gl.ARRAY_BUFFER,pBuf);gl.enableVertexAttribArray(pa);gl.vertexAttribPointer(pa,3,gl.FLOAT,false,0,0);gl.bindBuffer(gl.ARRAY_BUFFER,nBuf);gl.enableVertexAttribArray(na);gl.vertexAttribPointer(na,3,gl.FLOAT,false,0,0);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,iBuf);gl.uniformMatrix4fv(gl.getUniformLocation(prog,'mvp'),false,mvp);gl.uniformMatrix4fv(gl.getUniformLocation(prog,'mm'),false,mm);gl.uniform3fv(gl.getUniformLocation(prog,'col'),color);gl.uniform3fv(gl.getUniformLocation(prog,'light'),light);gl.drawElements(gl.TRIANGLES,36,gl.UNSIGNED_SHORT,0);}
+const covers=[[-8,1,-8,4,2,1],[8,1,-8,4,2,1],[-8,1,8,4,2,1],[8,1,8,4,2,1],[0,1.5,-12,10,3,1],[0,1.5,12,10,3,1],[-12,1,0,1,2,10],[12,1,0,1,2,10],[0,0.75,0,6,1.5,6],[-4,1,-4,2,2,2],[4,1,4,2,2,2]];
+/* ---- game state ---- */
+const P={x:0,y:1.7,z:8,yaw:0,pitch:0,hp:200,alive:true,vx:0,vy:0,vz:0,ult:0,k:0,d:0,dash:0,shield:0};
+const bots=[];
+for(let i=0;i<5;i++)bots.push({team:1,x:-10+i*5,z:-6+(i%2)*4,yaw:0,hp:120,alive:true,cool:Math.random()*2,color:[1,0.35,0.3],name:'RIVAL-'+(i+1)});
+for(let i=0;i<2;i++)bots.push({team:0,x:-5+i*10,z:4,yaw:0,hp:150,alive:true,cool:1,color:[0.3,0.7,1],name:'ALLY-'+(i+1)});
+const shots=[];let scoreA=0,scoreB=0,timeLeft=300,last=performance.now(),fireCd=0,frames=0,fpsT=0,playing=false,overdrive=0;
+const keys={};
+addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='KeyE')doDash();if(e.code==='KeyQ')doUlt();if(['Space','ArrowUp'].includes(e.code))e.preventDefault();});
+addEventListener('keyup',e=>keys[e.code]=false);
+document.getElementById('play').onclick=()=>{const s=STATS[HERO];P.hp=s.hp;HUD.heroname.textContent=HERO.toUpperCase();document.getElementById('menu').style.display='none';playing=true;canvas.requestPointerLock&&canvas.requestPointerLock();feed('Deployed as '+HERO.toUpperCase()+' — good luck!');};
+document.addEventListener('pointerlockchange',()=>{if(!document.pointerLockElement&&playing&&P.alive) {/* keep playing */}});
+document.addEventListener('mousemove',e=>{if(document.pointerLockElement===canvas&&playing){P.yaw-=e.movementX*0.0025;P.pitch-=e.movementY*0.0022;P.pitch=Math.max(-1.2,Math.min(1.2,P.pitch));}});
+canvas.addEventListener('mousedown',e=>{if(playing&&e.button===0)tryFire();});
+document.getElementById('tfire').onclick=()=>tryFire();document.getElementById('tjump').onclick=()=>{P.vy=5;};document.getElementById('tdash').onclick=()=>doDash();document.getElementById('tult').onclick=()=>doUlt();
+let touchLook=null;canvas.addEventListener('touchstart',e=>{touchLook=e.touches[0];},{passive:true});canvas.addEventListener('touchmove',e=>{if(touchLook){P.yaw-=(e.touches[0].clientX-touchLook.clientX)*0.005;touchLook=e.touches[0];}},{passive:true});
+function feed(t){const d=document.createElement('div');d.textContent=t;HUD.feed.prepend(d);while(HUD.feed.children.length>5)HUD.feed.lastChild.remove();setTimeout(()=>d.remove(),5000);}
+function tryFire(){if(!P.alive||fireCd>0)return;const s=STATS[HERO];fireCd=s.rate*(overdrive>0?0.4:1);const dx=-Math.sin(P.yaw)*Math.cos(P.pitch),dy=Math.sin(P.pitch),dz=-Math.cos(P.yaw)*Math.cos(P.pitch);shots.push({x:P.x+dx,y:P.y,z:P.z+dz,dx,dy,dz,life:1.2,team:0,dmg:s.dmg*(overdrive>0?1.5:1),from:'YOU'});P.ult=Math.min(100,P.ult+3);}
+function doDash(){if(P.dash>0||!P.alive)return;P.dash=5;const dx=-Math.sin(P.yaw),dz=-Math.cos(P.yaw);P.x+=dx*5;P.z+=dz*5;P.x=Math.max(-19,Math.min(19,P.x));P.z=Math.max(-19,Math.min(19,P.z));feed('Dash!');}
+function doUlt(){if(P.ult<100||!P.alive)return;P.ult=0;if(HERO==='striker'){overdrive=6;feed('ULT: OVERDRIVE!');}else if(HERO==='vanguard'){bots.filter(b=>b.team===1).forEach(b=>{const d=Math.hypot(b.x-P.x,b.z-P.z);if(d<10){b.hp-=80;if(b.hp<=0)killBot(b,'ULT shockwave');}});feed('ULT: SHOCKWAVE!');}else{bots.filter(b=>b.team===0&&b.alive).forEach(b=>b.hp=Math.min(150,b.hp+80));P.hp=Math.min(STATS[HERO].hp,P.hp+60);feed('ULT: TEAM SURGE!');}}
+function killBot(b,how){b.alive=false;b.respawn=4;if(b.team===1){P.k++;scoreA++;feed('✖ '+b.name+' down ('+how+')');}else{scoreB++;feed('Ally '+b.name+' fell');}HUD.kills.textContent=P.k;}
+function hurtPlayer(d){if(P.shield>0)d*=0.25;if(HERO==='vanguard'&&P.shield>0)d*=0.5;P.hp-=d;HUD.hit.textContent='-'+Math.round(d);setTimeout(()=>HUD.hit.textContent='',200);if(P.hp<=0&&P.alive){P.alive=false;P.d++;HUD.deaths.textContent=P.d;scoreB++;HUD.respawn.style.display='block';setTimeout(()=>{P.hp=STATS[HERO].hp;P.alive=true;P.x=0;P.z=8;HUD.respawn.style.display='none';},2500);}}
+function loop(now){requestAnimationFrame(loop);let dt=Math.min(0.05,(now-last)/1000);last=now;frames++;fpsT+=dt;if(fpsT>=0.5){HUD.fps.textContent=Math.round(frames/fpsT);frames=0;fpsT=0;}
+  if(playing&&timeLeft>0){timeLeft-=dt;const m=String(Math.floor(timeLeft/60)).padStart(2,'0'),s=String(Math.floor(timeLeft%60)).padStart(2,'0');HUD.timer.textContent=m+':'+s;}
+  // movement (also gentle auto-orbit before play for lively screenshots)
+  if(!playing){P.yaw+=dt*0.15;}
+  else if(P.alive){const sp=STATS[HERO].speed*((keys.ShiftLeft||keys.ShiftRight)?1.5:1);const f=(keys.KeyW?1:0)-(keys.KeyS?1:0),st=(keys.KeyD?1:0)-(keys.KeyA?1:0);const sy=Math.sin(P.yaw),cy=Math.cos(P.yaw);P.x+=((-sy*f)+(cy*st))*sp*dt;P.z+=((-cy*f)+(-sy*st))*sp*dt;P.x=Math.max(-19,Math.min(19,P.x));P.z=Math.max(-19,Math.min(19,P.z));if(keys.Space&&Math.abs(P.vy)<0.1)P.vy=5.2;}
+  P.vy-=12*dt;P.y+=P.vy*dt;if(P.y<1.7){P.y=1.7;P.vy=0;}
+  fireCd-=dt;P.dash-=dt;P.shield-=dt;overdrive-=dt;
+  // bots AI
+  for(const b of bots){if(!b.alive){b.respawn-=dt;if(b.respawn<=0){b.alive=true;b.hp=b.team?120:150;b.x=(Math.random()-0.5)*20;b.z=b.team?-8:4;}continue;}b.cool-=dt;const tx=b.team===1?P.x:(bots.find(o=>o.team===1&&o.alive)||{x:0,z:-8}).x;const tz=b.team===1?P.z:(bots.find(o=>o.team===1&&o.alive)||{x:0,z:-8}).z;const dx=tx-b.x,dz=tz-b.z,d=Math.hypot(dx,dz)||1;b.x+=dx/d*dt*3;b.z+=dz/d*dt*3;b.yaw=Math.atan2(-dx,-dz);if(d<18&&b.cool<=0){b.cool=0.9+Math.random();const nx=dx/d,nz=dz/d;shots.push({x:b.x,y:1.5,z:b.z,dx:nx,dy:0,dz:nz,life:1.5,team:b.team,dmg:7,from:b.name});}}
+  // shots
+  for(let i=shots.length-1;i>=0;i--){const sh2=shots[i];sh2.x+=sh2.dx*dt*30;sh2.y+=sh2.dy*dt*30;sh2.z+=sh2.dz*dt*30;sh2.life-=dt;let kill=sh2.life<=0||Math.abs(sh2.x)>20||Math.abs(sh2.z)>20;
+    if(!kill){if(sh2.team===0){for(const b of bots){if(b.team===1&&b.alive&&Math.hypot(b.x-sh2.x,b.z-sh2.z)<1&&Math.abs(1.5-sh2.y)<2){b.hp-=sh2.dmg;kill=true;if(b.hp<=0)killBot(b,'blaster');break;}}}
+      else{if(sh2.team===1&&P.alive&&Math.hypot(P.x-sh2.x,P.z-sh2.z)<0.9&&Math.abs(P.y-sh2.y)<1.6){hurtPlayer(sh2.dmg);kill=true;}for(const b of bots){if(b.team===0&&b.alive&&Math.hypot(b.x-sh2.x,b.z-sh2.z)<1){b.hp-=sh2.dmg;if(b.hp<=0){b.alive=false;b.respawn=4;scoreB++;}kill=true;break;}}}}
+    if(kill)shots.splice(i,1);}
+  HUD.hp.style.width=Math.max(0,P.hp/STATS[HERO].hp*100)+'%';HUD.hpnum.textContent=Math.max(0,Math.ceil(P.hp));HUD.score.textContent=scoreA+' : '+scoreB;HUD.qcd.textContent='ult '+Math.floor(P.ult)+'%';HUD.ecd.textContent=P.dash>0?Math.ceil(P.dash)+'s':'ready';
+  render(now/1000);
+}
+function render(t){if(!gl){return;}gl.clearColor(0.03,0.05,0.1,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);const asp=canvas.width/canvas.height;const proj=persp(1.1,asp,0.1,200);const ex=P.x,ey=P.y,ez=P.z;const cx=ex-Math.sin(P.yaw)*3,cy=ey+Math.sin(P.pitch)*3,cz=ez-Math.cos(P.yaw)*3;const view=lookAt([ex,ey,ez],[cx,cy,cz],[0,1,0]);const vp=mat4mul(proj,view);const light=[5+Math.sin(t*0.3)*3,10,5];
+  // floor
+  for(let gx=-4;gx<=4;gx++)for(let gz=-4;gz<=4;gz++){const mm=model(gx*5,0,gz*5,4.9,0.2,4.9,0);drawBox(mat4mul(vp,mm),mm,((gx+gz)%2===0)?[0.10,0.16,0.28]:[0.08,0.13,0.24],light);}
+  // center glow ring
+  drawBox(mat4mul(vp,model(0,0.4+Math.sin(t*2)*0.05,0,6.4,0.15,6.4,0)),model(0,0.4,0,6.4,0.15,6.4,0),[0.2,0.5,1],light);
+  for(const c of covers){const mm=model(c[0],c[1],c[2],c[3],c[4],c[5],0);drawBox(mat4mul(vp,mm),mm,[0.25,0.32,0.55],light);}
+  // bots
+  for(const b of bots){if(!b.alive)continue;const bob=Math.sin(t*4+b.x)*0.08;const mm=model(b.x,1.2+bob,b.z,0.9,1.6,0.9,b.yaw);drawBox(mat4mul(vp,mm),mm,b.color,light);const hm=model(b.x,2.3+bob,b.z,0.9*(b.hp/(b.team?120:150)),0.15,0.15,0);drawBox(mat4mul(vp,hm),hm,[0.2,1,0.4],light);}
+  // shots
+  for(const s of shots){const mm=model(s.x,s.y,s.z,0.18,0.18,0.6,Math.atan2(s.dx,s.dz));drawBox(mat4mul(vp,mm),mm,s.team===0?[1,0.9,0.3]:[1,0.3,0.3],light);}
+  // sky beacons
+  for(let i=0;i<6;i++){const a=t*0.2+i*1.047;const mm=model(Math.sin(a)*24,8,Math.cos(a)*24,1,6,1,0);drawBox(mat4mul(vp,mm),mm,[0.3,0.4,1],light);}
+}
+if(!gl){document.body.insertAdjacentHTML('beforeend','<div style="position:fixed;inset:auto 0 0 0;padding:8px;background:#a00;text-align:center">WebGL unavailable — 2D fallback. Game HUD still live.</div>');}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
